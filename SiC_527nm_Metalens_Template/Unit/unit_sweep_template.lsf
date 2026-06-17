@@ -1,0 +1,42 @@
+# Lumerical FDTD 单元扫参导出模板。
+#
+# 用途：
+#   在单元 FDTD 工程中完成半径 sweep 后，导出 MATLAB 可读取的
+#   相位库 phix_xxx.mat 和透射率库 Tx_xxx.mat。
+#
+# 通常需要修改：
+#   sweep_name      : FDTD 中 sweep 对象的名称，常用 "radius"
+#   radius_min_nm   : 扫描的起始半径
+#   radius_max_nm   : 扫描的结束半径
+#   radius_points   : 半径扫描点数
+#   wavelength_tag  : 输出文件名中的波长标签，例如 "527"
+#   phase_result    : 相位对应的 sweep 结果名
+#   T_result        : 透射率对应的 sweep 结果名
+
+sweep_name = "radius";
+radius_min_nm = 44;
+radius_max_nm = 92;
+radius_points = 97;
+wavelength_tag = "527";
+
+phase_result = "phase";
+T_result = "T";
+
+radius_nm = linspace(radius_min_nm, radius_max_nm, radius_points);
+radius = getsweepdata(sweep_name, "radius");
+phix = unwrap(angle(getsweepdata(sweep_name, phase_result)));
+Tx = getsweepdata(sweep_name, T_result);
+phix_one = (phix - phix(1)) / (2*pi);
+
+plot(radius_nm, phix_one, "半径 (nm)", "相位 / 2pi", "单元相位和透射率", "plot type=point,marker style=o,color=black,linewidth=4");
+holdon;
+plot(radius_nm, Tx, "半径 (nm)", "透射率 T", "单元相位和透射率", "plot type=line,pen=-,color=red,linewidth=4");
+setplot("y1 min", 0);
+setplot("y1 max", 1.5);
+
+matlabsave("phix_" + wavelength_tag, phix);
+matlabsave("Tx_" + wavelength_tag, Tx);
+
+?"单元扫参结果导出完成。";
+?"已保存：phix_" + wavelength_tag + ".mat";
+?"已保存：Tx_" + wavelength_tag + ".mat";

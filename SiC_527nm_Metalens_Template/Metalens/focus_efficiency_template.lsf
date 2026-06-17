@@ -1,0 +1,64 @@
+# 初步聚焦效率估计模板。
+#
+# 含义：
+#   估计透过 monitor 的能量中，有多少落入圆形焦斑桶。
+#   这个指标适合学习和对比，但不同模型之间必须保持同一套
+#   “效率”定义。
+#
+# 请在运行 focus_metrics_template.lsf 后，或设置好相同参数后再运行。
+
+project_tag = "custom_527_small";
+f = 10e-6;
+theta_deg = 0;
+theta = theta_deg/180*pi;
+
+r = 4e-6;
+offaxis = f*sin(theta);
+x = linspace(-r + offaxis, r + offaxis, 401);
+y = linspace(-r, r, 401);
+z = linspace(1e-6, 1.4*f, 240);
+
+E_z = farfieldexact3d("monitor", offaxis, 0, z);
+I_z = pinch(sum(abs(E_z)^2, 4));
+ind_focus = find(I_z, max(I_z));
+z_focus = z(ind_focus);
+
+E_xy = farfieldexact3d("monitor", x, y, z_focus);
+I_xy = pinch(sum(abs(E_xy)^2, 4));
+
+ix0 = find(x, offaxis);
+iy0 = find(y, 0);
+I_x = pinch(I_xy(:, iy0));
+I_y = pinch(I_xy(ix0, :));
+I_xn = I_x/max(I_x);
+I_yn = I_y/max(I_y);
+
+ix = find(I_xn >= 0.5);
+iy = find(I_yn >= 0.5);
+FWHM_x = x(max(ix)) - x(min(ix));
+FWHM_y = y(max(iy)) - y(min(iy));
+FWHM_mean = (FWHM_x + FWHM_y)/2;
+
+focus_radius = 3*FWHM_mean;
+X = meshgridx(x, y);
+Y = meshgridy(x, y);
+bucket = ((X-offaxis)^2 + Y^2) <= focus_radius^2;
+
+dx = x(2)-x(1);
+dy = y(2)-y(1);
+focus_power = sum(I_xy*bucket)*dx*dy;
+total_power_xy = sum(I_xy)*dx*dy;
+encircled_transmitted_fraction = focus_power/total_power_xy;
+
+T_monitor = transmission("monitor");
+focusing_efficiency = T_monitor*encircled_transmitted_fraction;
+
+matlabsave("focus_efficiency_" + project_tag, z_focus, FWHM_x, FWHM_y, FWHM_mean, focus_radius, T_monitor, encircled_transmitted_fraction, focusing_efficiency, offaxis, theta_deg);
+
+?"初步聚焦效率估计完成。";
+?"项目标签: " + project_tag;
+?"z_focus (um): " + num2str(z_focus*1e6);
+?"焦斑桶半径 (um): " + num2str(focus_radius*1e6);
+?"T_monitor: " + num2str(T_monitor);
+?"焦斑桶内透射能量占比: " + num2str(encircled_transmitted_fraction);
+?"聚焦效率: " + num2str(focusing_efficiency);

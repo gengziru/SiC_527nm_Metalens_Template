@@ -1,0 +1,58 @@
+# 焦点指标定量检查模板。
+#
+# 用途：
+#   定量检查实际焦点位置和焦斑宽度。
+#   脚本会保存三张线切图和一个 MATLAB .mat 结果文件。
+#
+# 请根据当前模型修改 project_tag、f、theta_deg、r 和 z 范围。
+
+project_tag = "custom_527_small";
+f = 10e-6;
+theta_deg = 0;
+theta = theta_deg/180*pi;
+
+r = 4e-6;
+offaxis = f*sin(theta);
+x = linspace(-r + offaxis, r + offaxis, 201);
+y = linspace(-r, r, 201);
+z = linspace(1e-6, 1.4*f, 240);
+
+E_z = farfieldexact3d("monitor", offaxis, 0, z);
+I_z = pinch(sum(abs(E_z)^2, 4));
+I_z = I_z / max(I_z);
+ind_focus = find(I_z, max(I_z));
+z_focus = z(ind_focus);
+
+E_xy = farfieldexact3d("monitor", x, y, z_focus);
+I_xy = pinch(sum(abs(E_xy)^2, 4));
+I_xy = I_xy / max(I_xy);
+
+ix0 = find(x, offaxis);
+iy0 = find(y, 0);
+I_x = pinch(I_xy(:, iy0));
+I_y = pinch(I_xy(ix0, :));
+
+half_max = 0.5;
+ix = find(I_x >= half_max);
+iy = find(I_y >= half_max);
+FWHM_x = x(max(ix)) - x(min(ix));
+FWHM_y = y(max(iy)) - y(min(iy));
+
+plot(x*1e6, I_x, "x (um)", "归一化 |E|^2", "实际焦点处的 x 向线切");
+exportfigure("focus_line_x_" + project_tag + ".jpg");
+
+plot(y*1e6, I_y, "y (um)", "归一化 |E|^2", "实际焦点处的 y 向线切");
+exportfigure("focus_line_y_" + project_tag + ".jpg");
+
+plot(z*1e6, I_z, "z (um)", "归一化 |E|^2", "轴向强度");
+exportfigure("focus_line_z_" + project_tag + ".jpg");
+
+matlabsave("focus_metrics_" + project_tag, x, y, z, I_x, I_y, I_z, z_focus, FWHM_x, FWHM_y, offaxis, theta_deg);
+
+?"焦点指标计算完成。";
+?"项目标签: " + project_tag;
+?"theta_deg: " + num2str(theta_deg);
+?"预期离轴 x 位置 (um): " + num2str(offaxis*1e6);
+?"实际 z_focus (um): " + num2str(z_focus*1e6);
+?"FWHM_x (um): " + num2str(FWHM_x*1e6);
+?"FWHM_y (um): " + num2str(FWHM_y*1e6);
